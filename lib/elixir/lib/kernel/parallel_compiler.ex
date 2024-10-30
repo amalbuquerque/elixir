@@ -462,7 +462,12 @@ defmodule Kernel.ParallelCompiler do
     end)
 
     [] = files
-    cycle_return = measure_timing(state, "each_cycle callback", fn -> each_cycle_return(state.each_cycle.()) end)
+
+    cycle_return =
+      measure_timing(state, "each_cycle callback", fn ->
+        each_cycle_return(state.each_cycle.())
+      end)
+
     state = cycle_timing(result, state)
 
     case cycle_return do
@@ -548,6 +553,7 @@ defmodule Kernel.ParallelCompiler do
   end
 
   defp measure_timing(%{profile: :none}, _what, fun), do: fun.()
+
   defp measure_timing(%{profile: {:time, _, _}}, what, fun) do
     {time, result} = :timer.tc(fun)
     time = div(time, 1000)
@@ -829,15 +835,19 @@ defmodule Kernel.ParallelCompiler do
             "[profile] #{compiling}ms compiling +      0ms waiting while compiling #{relative}"
 
           {{kind, on, time}, rest} ->
+            rest_waiting_time = Enum.map(rest, fn {_, _, time} -> time end)
+            total_waiting_time = Enum.sum([time | rest_waiting_time])
+            total_waiting = to_padded_ms(total_waiting_time)
+
             initial_message = [
-              "[profile] #{compiling}ms compiling + ",
+              "[profile] #{compiling}ms compiling + #{total_waiting}ms total waiting time | ",
               format_waiting_message(time, kind, on, relative)
             ]
 
             waiting_details =
               Enum.map(rest, fn {kind, on, time} ->
                 [
-                  "\n[profile]                    | ",
+                  ", ",
                   format_waiting_message(time, kind, on, relative)
                 ]
               end)
